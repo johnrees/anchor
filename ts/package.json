@@ -2,10 +2,14 @@
   "name": "@project-serum/anchor",
   "version": "0.5.1-beta.2",
   "description": "Anchor client",
-  "main": "dist/cjs/index.js",
-  "module": "dist/esm/index.js",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
+  "exports": "./dist/index.modern.js",
+  "unpkg": "dist/umd/index.js",
   "license": "(MIT OR Apache-2.0)",
   "types": "dist/index.d.ts",
+  "type": "module",
+  "source": "./src/index.ts",
   "publishConfig": {
     "access": "public"
   },
@@ -13,8 +17,7 @@
     "node": ">=10"
   },
   "scripts": {
-    "build": "yarn build:node",
-    "build:node": "tsc && tsc -p tsconfig.cjs.json",
+    "build": "microbundle",
     "lint:fix": "prettier src/** -w",
     "watch": "tsc -p tsconfig.cjs.json --watch",
     "prepublishOnly": "yarn build",
@@ -27,6 +30,7 @@
     "@types/bs58": "^4.0.1",
     "@types/crypto-hash": "^1.1.2",
     "@types/pako": "^1.0.1",
+    "assert": "^2.0.0",
     "base64-js": "^1.5.1",
     "bn.js": "^5.1.2",
     "bs58": "^4.0.1",
@@ -51,6 +55,7 @@
     "jest": "26.6.0",
     "jest-config": "26.6.0",
     "lint-staged": "^10.5.0",
+    "microbundle": "^0.13.0",
     "prettier": "^2.1.2",
     "ts-jest": "^26.4.3",
     "ts-node": "^9.0.0",
