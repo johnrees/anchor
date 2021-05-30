@@ -25,5 +25,8 @@
     "paths": {
       "@solana/web3.js":  ["./node_modules/@solana/web3.js/lib"]
     }
-  }
+  },
+  "exclude": [
+    "./src/workspace-browser-shim.ts"
+  ]
 }
