@@ -1,16 +1,17 @@
 import {
+  Commitment,
+  ConfirmOptions,
   Connection,
   Keypair,
-  Signer,
   PublicKey,
+  RpcResponseAndContext,
+  sendAndConfirmRawTransaction,
+  Signer,
+  SimulatedTransactionResponse,
   Transaction,
   TransactionSignature,
-  ConfirmOptions,
-  sendAndConfirmRawTransaction,
-  RpcResponseAndContext,
-  SimulatedTransactionResponse,
-  Commitment,
 } from "@solana/web3.js";
+import { payer } from "./node_wallet";
 
 /**
  * The network and wallet context used to send transactions paid for and signed
@@ -234,18 +235,6 @@ export class NodeWallet implements Wallet {
   constructor(readonly payer: Keypair) {}
 
   static local(): NodeWallet {
-    const payer = Keypair.fromSecretKey(
-      Buffer.from(
-        JSON.parse(
-          require("fs").readFileSync(
-            require("os").homedir() + "/.config/solana/id.json",
-            {
-              encoding: "utf-8",
-            }
-          )
-        )
-      )
-    );
     return new NodeWallet(payer);
   }
 

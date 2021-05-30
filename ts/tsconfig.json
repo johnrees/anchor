@@ -27,6 +27,6 @@
     }
   },
   "exclude": [
-    "./src/workspace-browser-shim.ts"
+    "./src/browser_shims.ts"
   ]
 }
