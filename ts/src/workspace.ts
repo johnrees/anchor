@@ -1,8 +1,7 @@
+import { PublicKey } from "@solana/web3.js";
 import camelCase from "camelcase";
 import * as toml from "toml";
-import { PublicKey } from "@solana/web3.js";
 import { Program } from "./program";
-import { getProvider } from "./";
 
 let _populatedWorkspace = false;
 
@@ -19,15 +18,16 @@ const workspace = new Proxy({} as any, {
     const fs = require("fs");
     const process = require("process");
 
-    if (typeof window !== "undefined") {
-      // Workspaces aren't available in the browser, yet.
+    if (typeof window !== "undefined" && !window.process?.["type"]) {
+      // Workspaces are available in electron, but not in the browser, yet.
       return undefined;
     }
 
     if (!_populatedWorkspace) {
       const path = require("path");
 
-      let projectRoot = process.cwd();
+      let projectRoot = process.env.PROJECT_ROOT ?? process.cwd();
+
       while (!fs.existsSync(path.join(projectRoot, "Anchor.toml"))) {
         const parentDir = path.dirname(projectRoot);
         if (parentDir === projectRoot) {
