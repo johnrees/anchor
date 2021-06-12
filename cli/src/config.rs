@@ -1,3 +1,4 @@
+use crate::ConfigOverride;
 use anchor_client::Cluster;
 use anchor_syn::idl::Idl;
 use anyhow::{anyhow, Error, Result};
@@ -27,8 +28,25 @@ pub struct ProviderConfig {
 pub type ClustersConfig = BTreeMap<Cluster, BTreeMap<String, ProgramDeployment>>;
 
 impl Config {
+    pub fn discover(
+        cfg_override: &ConfigOverride,
+    ) -> Result<Option<(Self, PathBuf, Option<PathBuf>)>> {
+        Config::_discover().map(|opt| {
+            opt.map(|(mut cfg, cfg_path, cargo_toml)| {
+                if let Some(cluster) = cfg_override.cluster.clone() {
+                    cfg.provider.cluster = cluster;
+                }
+
+                if let Some(wallet) = cfg_override.wallet.clone() {
+                    cfg.provider.wallet = wallet;
+                }
+                (cfg, cfg_path, cargo_toml)
+            })
+        })
+    }
+
     // Searches all parent directories for an Anchor.toml file.
-    pub fn discover() -> Result<Option<(Self, PathBuf, Option<PathBuf>)>> {
+    fn _discover() -> Result<Option<(Self, PathBuf, Option<PathBuf>)>> {
         // Set to true if we ever see a Cargo.toml file when traversing the
         // parent directories.
         let mut cargo_toml = None;
@@ -192,7 +210,7 @@ pub fn read_all_programs() -> Result<Vec<Program>> {
     let mut r = vec![];
     for f in files {
         let path = f?.path();
-        let idl = anchor_syn::parser::file::parse(path.join("src/lib.rs"))?;
+        let idl = anchor_syn::idl::file::parse(path.join("src/lib.rs"))?;
         let lib_name = extract_lib_name(&path.join("Cargo.toml"))?;
         r.push(Program {
             lib_name,

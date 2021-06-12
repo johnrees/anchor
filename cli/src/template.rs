@@ -183,6 +183,7 @@ pub fn ts_config() -> &'static str {
 
 pub fn git_ignore() -> &'static str {
     r#"
+.anchor
 .DS_Store
 target
 **/*.rs.bk
@@ -227,7 +228,7 @@ anchor.setProvider(provider);
             r#"
 anchor.workspace.{} = new anchor.Program({}, new PublicKey("{}"), provider);
 "#,
-            program.name,
+            program.name.to_camel_case(),
             serde_json::to_string(&program.idl)?,
             program.program_id.to_string()
         ));

@@ -1,6 +1,6 @@
 {
   "name": "@project-serum/anchor",
-  "version": "0.6.1-beta.1",
+  "version": "0.8.1-beta.1",
   "description": "Anchor client",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -10,19 +10,19 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=10"
+    "node": ">=11"
   },
   "scripts": {
-    "build": "yarn build:node",
+    "build": "rm -rf dist/ && yarn build:node",
     "build:node": "tsc && tsc -p tsconfig.cjs.json",
     "lint:fix": "prettier src/** -w",
     "watch": "tsc -p tsconfig.cjs.json --watch",
     "prepublishOnly": "yarn build",
-    "docs": "typedoc --excludePrivate --includeVersion --out ../docs/src/.vuepress/dist/ts/ src/index.ts"
+    "docs": "typedoc --excludePrivate --includeVersion --out ../docs/src/.vuepress/dist/ts/ --readme none src/index.ts"
   },
   "dependencies": {
     "@project-serum/borsh": "^0.2.2",
-    "@solana/web3.js": "^1.11.0",
+    "@solana/web3.js": "^1.17.0",
     "base64-js": "^1.5.1",
     "bn.js": "^5.1.2",
     "bs58": "^4.0.1",

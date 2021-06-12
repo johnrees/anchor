@@ -2,7 +2,7 @@
 //! It's not too instructive/coherent by itself, so please see other examples.
 
 use anchor_lang::prelude::*;
-use misc2::misc2::MyState;
+use misc2::misc2::MyState as Misc2State;
 use misc2::Auth;
 
 #[program]
@@ -19,6 +19,13 @@ pub mod misc {
     impl MyState {
         pub fn new(_ctx: Context<Ctor>) -> Result<Self, ProgramError> {
             Ok(Self { v: vec![] })
+        }
+
+        pub fn remaining_accounts(&mut self, ctx: Context<RemainingAccounts>) -> ProgramResult {
+            if ctx.remaining_accounts.len() != 1 {
+                return Err(ProgramError::Custom(1)); // Arbitrary error.
+            }
+            Ok(())
         }
     }
 
@@ -45,7 +52,15 @@ pub mod misc {
         misc2::cpi::state::set_data(ctx, data)
     }
 
-    pub fn test_associated_account_creation(
+    pub fn test_init_associated_account(
+        ctx: Context<TestInitAssociatedAccount>,
+        data: u64,
+    ) -> ProgramResult {
+        ctx.accounts.my_account.data = data;
+        Ok(())
+    }
+
+    pub fn test_associated_account(
         ctx: Context<TestAssociatedAccount>,
         data: u64,
     ) -> ProgramResult {
@@ -74,10 +89,17 @@ pub mod misc {
         ctx.accounts.data.data = data;
         Ok(())
     }
+
+    pub fn test_close(_ctx: Context<TestClose>) -> ProgramResult {
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
 pub struct Ctor {}
+
+#[derive(Accounts)]
+pub struct RemainingAccounts {}
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -104,9 +126,16 @@ pub struct TestStateCpi<'info> {
     #[account(signer)]
     authority: AccountInfo<'info>,
     #[account(mut, state = misc2_program)]
-    cpi_state: CpiState<'info, MyState>,
+    cpi_state: CpiState<'info, Misc2State>,
     #[account(executable)]
     misc2_program: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct TestClose<'info> {
+    #[account(mut, close = sol_dest)]
+    data: ProgramAccount<'info, Data>,
+    sol_dest: AccountInfo<'info>,
 }
 
 // `my_account` is the associated token account being created.
@@ -119,8 +148,8 @@ pub struct TestStateCpi<'info> {
 // accounts are needed when creating the associated program address within
 // the program.
 #[derive(Accounts)]
-pub struct TestAssociatedAccount<'info> {
-    #[account(associated = authority, with = state, with = data)]
+pub struct TestInitAssociatedAccount<'info> {
+    #[account(init, associated = authority, with = state, with = data)]
     my_account: ProgramAccount<'info, TestData>,
     #[account(mut, signer)]
     authority: AccountInfo<'info>,
@@ -128,6 +157,16 @@ pub struct TestAssociatedAccount<'info> {
     data: ProgramAccount<'info, Data>,
     rent: Sysvar<'info, Rent>,
     system_program: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct TestAssociatedAccount<'info> {
+    #[account(mut, associated = authority, with = state, with = data)]
+    my_account: ProgramAccount<'info, TestData>,
+    #[account(mut, signer)]
+    authority: AccountInfo<'info>,
+    state: ProgramState<'info, MyState>,
+    data: ProgramAccount<'info, Data>,
 }
 
 #[derive(Accounts)]

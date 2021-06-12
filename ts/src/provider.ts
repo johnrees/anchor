@@ -74,7 +74,7 @@ export default class Provider {
   }
 
   /**
-   * Sends the given transaction, ppaid for and signed by the provider's wallet.
+   * Sends the given transaction, paid for and signed by the provider's wallet.
    *
    * @param tx      The transaction to send.
    * @param signers The set of signers in addition to the provdier wallet that
@@ -93,20 +93,17 @@ export default class Provider {
       opts = this.opts;
     }
 
-    const signerKps = signers.filter((s) => s !== undefined) as Array<Signer>;
-    const signerPubkeys = [this.wallet.publicKey].concat(
-      signerKps.map((s) => s.publicKey)
-    );
-
-    tx.setSigners(...signerPubkeys);
+    tx.feePayer = this.wallet.publicKey;
     tx.recentBlockhash = (
       await this.connection.getRecentBlockhash(opts.preflightCommitment)
     ).blockhash;
 
     await this.wallet.signTransaction(tx);
-    signerKps.forEach((kp) => {
-      tx.partialSign(kp);
-    });
+    signers
+      .filter((s) => s !== undefined)
+      .forEach((kp) => {
+        tx.partialSign(kp);
+      });
 
     const rawTx = tx.serialize();
 
@@ -141,16 +138,14 @@ export default class Provider {
         signers = [];
       }
 
-      const signerKps = signers.filter((s) => s !== undefined) as Array<Signer>;
-      const signerPubkeys = [this.wallet.publicKey].concat(
-        signerKps.map((s) => s.publicKey)
-      );
-
-      tx.setSigners(...signerPubkeys);
+      tx.feePayer = this.wallet.publicKey;
       tx.recentBlockhash = blockhash.blockhash;
-      signerKps.forEach((kp) => {
-        tx.partialSign(kp);
-      });
+
+      signers
+        .filter((s) => s !== undefined)
+        .forEach((kp) => {
+          tx.partialSign(kp);
+        });
 
       return tx;
     });
@@ -190,12 +185,7 @@ export default class Provider {
       opts = this.opts;
     }
 
-    const signerKps = signers.filter((s) => s !== undefined) as Array<Signer>;
-    const signerPubkeys = [this.wallet.publicKey].concat(
-      signerKps.map((s) => s.publicKey)
-    );
-
-    tx.setSigners(...signerPubkeys);
+    tx.feePayer = this.wallet.publicKey;
     tx.recentBlockhash = (
       await this.connection.getRecentBlockhash(
         opts.preflightCommitment ?? this.opts.preflightCommitment
@@ -203,9 +193,12 @@ export default class Provider {
     ).blockhash;
 
     await this.wallet.signTransaction(tx);
-    signerKps.forEach((kp) => {
-      tx.partialSign(kp);
-    });
+    signers
+      .filter((s) => s !== undefined)
+      .forEach((kp) => {
+        tx.partialSign(kp);
+      });
+
     return await simulateTransaction(
       this.connection,
       tx,
@@ -281,3 +274,23 @@ async function simulateTransaction(
   }
   return res.result;
 }
+
+/**
+ * Sets the default provider on the client.
+ */
+export function setProvider(provider: Provider) {
+  _provider = provider;
+}
+
+/**
+ * Returns the default provider being used by the client.
+ */
+export function getProvider(): Provider {
+  if (_provider === null) {
+    return Provider.local();
+  }
+  return _provider;
+}
+
+// Global provider used as the default when a provider is not given.
+let _provider: Provider | null = null;

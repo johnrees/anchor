@@ -11,10 +11,18 @@ describe("misc", () => {
   it("Can allocate extra space for a state constructor", async () => {
     const tx = await program.state.rpc.new();
     const addr = await program.state.address();
-    const state = await program.state();
+    const state = await program.state.fetch();
     const accountInfo = await program.provider.connection.getAccountInfo(addr);
     assert.ok(state.v.equals(Buffer.from([])));
     assert.ok(accountInfo.data.length === 99);
+  });
+
+  it("Can use remaining accounts for a state instruction", async () => {
+    await program.state.rpc.remainingAccounts({
+      remainingAccounts: [
+        { pubkey: misc2Program.programId, isWritable: false, isSigner: false },
+      ],
+    });
   });
 
   const data = anchor.web3.Keypair.generate();
@@ -32,7 +40,7 @@ describe("misc", () => {
         instructions: [await program.account.data.createInstruction(data)],
       }
     );
-    const dataAccount = await program.account.data(data.publicKey);
+    const dataAccount = await program.account.data.fetch(data.publicKey);
     assert.ok(dataAccount.udata.eq(new anchor.BN(1234)));
     assert.ok(dataAccount.idata.eq(new anchor.BN(22)));
   });
@@ -47,7 +55,7 @@ describe("misc", () => {
       signers: [data],
       instructions: [await program.account.dataU16.createInstruction(data)],
     });
-    const dataAccount = await program.account.dataU16(data.publicKey);
+    const dataAccount = await program.account.dataU16.fetch(data.publicKey);
     assert.ok(dataAccount.data === 99);
   });
 
@@ -110,7 +118,7 @@ describe("misc", () => {
         authority: program.provider.wallet.publicKey,
       },
     });
-    let stateAccount = await misc2Program.state();
+    let stateAccount = await misc2Program.state.fetch();
     assert.ok(stateAccount.data.eq(oldData));
     assert.ok(stateAccount.auth.equals(program.provider.wallet.publicKey));
     const newData = new anchor.BN(2134);
@@ -121,12 +129,12 @@ describe("misc", () => {
         misc2Program: misc2Program.programId,
       },
     });
-    stateAccount = await misc2Program.state();
+    stateAccount = await misc2Program.state.fetch();
     assert.ok(stateAccount.data.eq(newData));
     assert.ok(stateAccount.auth.equals(program.provider.wallet.publicKey));
   });
 
-  it("Can create an associated program account", async () => {
+  it("Can init an associated program account", async () => {
     const state = await program.state.address();
 
     // Manual associated address calculation for test only. Clients should use
@@ -145,7 +153,7 @@ describe("misc", () => {
     );
     await assert.rejects(
       async () => {
-        await program.account.testData(associatedAccount);
+        await program.account.testData.fetch(associatedAccount);
       },
       (err) => {
         assert.ok(
@@ -155,7 +163,7 @@ describe("misc", () => {
         return true;
       }
     );
-    await program.rpc.testAssociatedAccountCreation(new anchor.BN(1234), {
+    await program.rpc.testInitAssociatedAccount(new anchor.BN(1234), {
       accounts: {
         myAccount: associatedAccount,
         authority: program.provider.wallet.publicKey,
@@ -172,6 +180,37 @@ describe("misc", () => {
       data.publicKey
     );
     assert.ok(account.data.toNumber() === 1234);
+  });
+
+  it("Can use an associated program account", async () => {
+    const state = await program.state.address();
+    const [
+      associatedAccount,
+      nonce,
+    ] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from([97, 110, 99, 104, 111, 114]), // b"anchor".
+        program.provider.wallet.publicKey.toBuffer(),
+        state.toBuffer(),
+        data.publicKey.toBuffer(),
+      ],
+      program.programId
+    );
+    await program.rpc.testAssociatedAccount(new anchor.BN(5), {
+      accounts: {
+        myAccount: associatedAccount,
+        authority: program.provider.wallet.publicKey,
+        state,
+        data: data.publicKey,
+      },
+    });
+    // Try out the generated associated method.
+    const account = await program.account.testData.associated(
+      program.provider.wallet.publicKey,
+      state,
+      data.publicKey
+    );
+    assert.ok(account.data.toNumber() === 5);
   });
 
   it("Can retrieve events when simulating a transaction", async () => {
@@ -203,7 +242,7 @@ describe("misc", () => {
       instructions: [await program.account.dataI8.createInstruction(data)],
       signers: [data],
     });
-    const dataAccount = await program.account.dataI8(data.publicKey);
+    const dataAccount = await program.account.dataI8.fetch(data.publicKey);
     assert.ok(dataAccount.data === -3);
   });
 
@@ -219,14 +258,67 @@ describe("misc", () => {
       instructions: [await program.account.dataI16.createInstruction(data)],
       signers: [data],
     });
-    const dataAccount = await program.account.dataI16(data.publicKey);
+    const dataAccount = await program.account.dataI16.fetch(data.publicKey);
     assert.ok(dataAccount.data === -2048);
 
     dataPubkey = data.publicKey;
   });
 
   it("Can use base58 strings to fetch an account", async () => {
-    const dataAccount = await program.account.dataI16(dataPubkey.toString());
+    const dataAccount = await program.account.dataI16.fetch(
+      dataPubkey.toString()
+    );
     assert.ok(dataAccount.data === -2048);
+  });
+
+  it("Should fail to close an account when sending lamports to itself", async () => {
+    try {
+      await program.rpc.testClose({
+        accounts: {
+          data: data.publicKey,
+          solDest: data.publicKey,
+        },
+      });
+      assert.ok(false);
+    } catch (err) {
+      const errMsg = "A close constraint was violated";
+      assert.equal(err.toString(), errMsg);
+      assert.equal(err.msg, errMsg);
+      assert.equal(err.code, 151);
+    }
+  });
+
+  it("Can close an account", async () => {
+    const openAccount = await program.provider.connection.getAccountInfo(
+      data.publicKey
+    );
+    assert.ok(openAccount !== null);
+
+    let beforeBalance = (
+      await program.provider.connection.getAccountInfo(
+        program.provider.wallet.publicKey
+      )
+    ).lamports;
+
+    await program.rpc.testClose({
+      accounts: {
+        data: data.publicKey,
+        solDest: program.provider.wallet.publicKey,
+      },
+    });
+
+    let afterBalance = (
+      await program.provider.connection.getAccountInfo(
+        program.provider.wallet.publicKey
+      )
+    ).lamports;
+
+    // Retrieved rent exemption sol.
+    assert.ok(afterBalance > beforeBalance);
+
+    const closedAccount = await program.provider.connection.getAccountInfo(
+      data.publicKey
+    );
+    assert.ok(closedAccount === null);
   });
 });
